@@ -1,0 +1,144 @@
+<!doctype html>
+<html lang="uz">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Ovoz Xonasi</title>
+  <meta name="theme-color" content="#0D0F15">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500..800&family=JetBrains+Mono:wght@400;600&family=Manrope:wght@400..700&display=swap">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<!-- Firebase sozlanmagan bo'lsa -->
+<section id="s-setup" class="screen" hidden>
+  <div class="setup">
+    <h1>Firebase hali ulanmagan</h1>
+    <p>Sayt ishlashi uchun <code>firebase-config.js</code> faylidagi sozlamalarni o'zingizning Firebase loyihangiz ma'lumotlari bilan almashtiring. Batafsil qadamlar <code>README.md</code> faylida.</p>
+  </div>
+</section>
+
+<!-- 1. Kirish -->
+<section id="s-login" class="screen login" hidden>
+  <div class="hero">
+    <div class="wave" aria-hidden="true">
+      <i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i>
+    </div>
+    <h1>Ovoz<br>Xonasi</h1>
+    <p class="tagline">Anime ovoz berish darslari. Jonli ovozli chat va yozuv chati bir joyda.</p>
+    <ul class="points">
+      <li>Ustoz o'quvchilar ovozini bitta tugma bilan ochadi yoki yopadi</li>
+      <li>Ovoz belgilari bilan yozib ijro qilinadi: pauza, ohang, urg'u</li>
+    </ul>
+  </div>
+
+  <form id="loginForm" class="login-card" autocomplete="off" novalidate>
+    <h2>Kirish</h2>
+    <div class="roles" role="radiogroup" aria-label="Rolni tanlang">
+      <button type="button" class="role-card" data-role="student" role="radio" aria-checked="false">
+        <strong>O'quvchiman</strong>
+        <span>Darsga qo'shilaman. Ustoz ruxsat bersa gaplashaman.</span>
+      </button>
+      <button type="button" class="role-card" data-role="teacher" role="radio" aria-checked="false">
+        <strong>Ustozman</strong>
+        <span>Dars yarataman va o'quvchilar ovozini boshqaraman.</span>
+      </button>
+    </div>
+    <div class="field">
+      <label for="nameIn">Ismingiz</label>
+      <input class="input" id="nameIn" maxlength="30" placeholder="Masalan: Dilshod" autocomplete="nickname">
+    </div>
+    <div class="field" id="codeField" hidden>
+      <label for="codeIn">Ustoz kodi</label>
+      <input class="input" id="codeIn" type="password" maxlength="64" autocomplete="off" placeholder="Kodni kiriting">
+      <p class="hint" id="codeHint">Kodni platforma egasidan oling.</p>
+    </div>
+    <p class="err" id="loginErr" role="alert" hidden></p>
+    <button class="btn primary big" id="loginBtn" type="submit" disabled>Davom etish</button>
+  </form>
+</section>
+
+<!-- 2. Darslar -->
+<section id="s-lobby" class="screen lobby" hidden>
+  <header class="bar">
+    <div class="brandmini"><span class="logo" aria-hidden="true"></span><strong>Ovoz Xonasi</strong></div>
+    <div class="who"><span id="whoName"></span><span class="role" id="whoRole"></span><button class="btn small ghost" id="logoutBtn" type="button">Chiqish</button></div>
+  </header>
+  <div class="lobby-body">
+    <div class="lobby-head">
+      <h2>Darslar</h2>
+      <div class="row">
+        <label class="check" id="archWrap" hidden><input type="checkbox" id="archToggle"> Arxiv</label>
+        <button class="btn primary small" id="newBtn" type="button" hidden>Yangi dars</button>
+      </div>
+    </div>
+    <form class="newform" id="newForm" hidden>
+      <div class="field"><label for="nfTitle">Dars nomi</label><input class="input" id="nfTitle" maxlength="80" placeholder="Masalan: Nafas va ovoz tayanchi"></div>
+      <div class="field"><label for="nfLevel">Daraja</label>
+        <select class="input" id="nfLevel"><option>Boshlang'ich</option><option>O'rta</option><option>Yuqori</option></select></div>
+      <div class="field wide"><label for="nfDesc">Dars maqsadi</label><textarea class="input" id="nfDesc" rows="2" maxlength="400" placeholder="O'quvchilar bu darsda nimani o'rganadi?"></textarea></div>
+      <div class="row"><button class="btn primary small" id="nfSave" type="submit">Saqlash</button><button class="btn small" id="nfCancel" type="button">Bekor qilish</button></div>
+      <p class="err" id="nfErr" hidden></p>
+    </form>
+    <div class="cards" id="roomCards"></div>
+  </div>
+</section>
+
+<!-- 3. Dars xonasi -->
+<section id="s-room" class="screen room" hidden>
+  <header class="bar">
+    <div class="rt">
+      <button class="btn small" id="leaveBtn" type="button">&larr; Darslar</button>
+      <div class="rt-title"><h2 id="roomTitle"></h2><p id="roomMeta"></p></div>
+    </div>
+    <div class="row" id="roomActions"></div>
+  </header>
+
+  <div class="tabs" id="tabs" role="tablist">
+    <button type="button" role="tab" data-tab="voice" aria-selected="false">Ovoz</button>
+    <button type="button" role="tab" data-tab="chat" aria-selected="true">Chat</button>
+  </div>
+
+  <div class="room-body" id="roomBody" data-tab="chat">
+    <aside class="voice" id="voicePane" aria-label="Ovozli chat">
+      <div class="vctl" id="vctl"></div>
+      <div class="tctl" id="tctl" hidden></div>
+      <h3 class="sub">Qatnashchilar <span id="memCount"></span></h3>
+      <ul class="members" id="members"></ul>
+    </aside>
+
+    <section class="chat" aria-label="Yozuv chati">
+      <div class="legend-panel" id="legendPanel" hidden></div>
+      <div class="msgs" id="msgs" aria-live="polite"></div>
+      <form class="composer" id="composer">
+        <div class="kindrow" id="kindRow" hidden role="group" aria-label="Xabar turi">
+          <button class="btn small" type="button" data-kind="msg">Xabar</button>
+          <button class="btn small" type="button" data-kind="task">Topshiriq</button>
+          <button class="btn small" type="button" data-kind="tip">Maslahat</button>
+          <button class="btn small" type="button" data-kind="review">Fikr</button>
+        </div>
+        <div class="taskrow" id="taskRow" hidden>
+          <input class="input" id="charIn" maxlength="60" placeholder="Personaj (masalan: Kaito)" aria-label="Personaj">
+          <input class="input" id="emoIn" maxlength="60" placeholder="Hissiyot (masalan: g'azab)" aria-label="Hissiyot">
+        </div>
+        <div class="replychip" id="replyChip" hidden></div>
+        <div class="markbar" id="markBar"></div>
+        <div class="inputrow">
+          <textarea class="input" id="ta" rows="1" maxlength="2000" aria-label="Xabar matni"></textarea>
+          <button class="btn ghost" id="legendBtn" type="button" aria-expanded="false" aria-controls="legendPanel">Belgilar</button>
+          <button class="btn primary" id="sendBtn" type="submit">Yuborish</button>
+        </div>
+        <p class="note" id="composeNote" hidden></p>
+      </form>
+    </section>
+  </div>
+</section>
+
+<div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
+<div id="audioBin" class="audiobin" aria-hidden="true"></div>
+
+<script type="module" src="app.js"></script>
+</body>
+</html>

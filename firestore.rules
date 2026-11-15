@@ -1,0 +1,89 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function signedIn() { return request.auth != null; }
+
+    // Ustoz: teachers/{uid} hujjati bor foydalanuvchi.
+    // Hujjat faqat to'g'ri ustoz kodi bilan yaratilishi mumkin.
+    function isTeacher() {
+      return signedIn() && exists(/databases/$(database)/documents/teachers/$(request.auth.uid));
+    }
+
+    // Ustoz kodi: private/teacherCode hujjatidagi "value" maydoni.
+    // Mijozlar bu hujjatni o'qiy olmaydi, faqat qoidalar solishtiradi.
+    match /private/{doc} {
+      allow read, write: if false;
+    }
+
+    match /teachers/{uid} {
+      allow read: if signedIn() && request.auth.uid == uid;
+      allow create: if signedIn() && request.auth.uid == uid
+        && request.resource.data.keys().hasOnly(['name', 'code'])
+        && request.resource.data.code is string
+        && request.resource.data.code == get(/databases/$(database)/documents/private/teacherCode).data.value;
+      allow update, delete: if false;
+    }
+
+    match /rooms/{rid} {
+      function room() { return get(/databases/$(database)/documents/rooms/$(rid)).data; }
+      function memberPath(u) { return /databases/$(database)/documents/rooms/$(rid)/members/$(u); }
+      function isKicked() {
+        return exists(memberPath(request.auth.uid)) && get(memberPath(request.auth.uid)).data.kicked == true;
+      }
+
+      allow read: if signedIn();
+      allow create: if isTeacher() && request.resource.data.createdBy == request.auth.uid;
+      allow update, delete: if isTeacher();
+
+      match /members/{uid} {
+        allow read: if signedIn() && (request.auth.uid == uid || !isKicked());
+
+        // O'quvchi doim "yopiq" (muted: true) holatda kiradi, ustoz ruxsat beradi.
+        allow create: if signedIn() && request.auth.uid == uid && !isKicked()
+          && request.resource.data.uid == uid
+          && request.resource.data.kicked == false
+          && (
+            (request.resource.data.role == 'student' && request.resource.data.muted == true)
+            || (request.resource.data.role == 'teacher' && isTeacher())
+          );
+
+        // O'quvchi faqat o'z hujjatidagi ruxsat etilgan maydonlarni o'zgartiradi.
+        // muted, kicked va role ni faqat ustoz o'zgartiradi.
+        allow update: if signedIn() && (
+          isTeacher()
+          || (request.auth.uid == uid
+              && request.resource.data.diff(resource.data).affectedKeys()
+                   .hasOnly(['name', 'lastSeen', 'inVoice', 'session', 'micOff', 'hand']))
+        );
+
+        allow delete: if isTeacher();
+      }
+
+      match /messages/{mid} {
+        allow read: if signedIn() && !isKicked();
+        allow create: if signedIn() && !isKicked()
+          && exists(memberPath(request.auth.uid))
+          && request.resource.data.uid == request.auth.uid
+          && request.resource.data.text is string
+          && request.resource.data.text.size() > 0
+          && request.resource.data.text.size() <= 2000
+          && (
+            isTeacher()
+            || (room().get('chatLocked', false) == false
+                && request.resource.data.kind == 'msg'
+                && request.resource.data.role == 'student')
+          );
+        allow update: if false;
+        allow delete: if signedIn() && (isTeacher() || resource.data.uid == request.auth.uid);
+      }
+
+      // WebRTC signalizatsiyasi (ovozli chat uchun vaqtinchalik xabarlar)
+      match /signals/{sid} {
+        allow create: if signedIn() && !isKicked() && request.resource.data.from == request.auth.uid;
+        allow read, delete: if signedIn() && resource.data.to == request.auth.uid;
+        allow update: if false;
+      }
+    }
+  }
+}
