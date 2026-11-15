@@ -138,6 +138,33 @@ code { font-family: var(--font-mono); font-size: .92em; background: var(--surfac
 .mem .ops { display: grid; gap: 4px; }
 .mem .ops .btn { padding: 4px 8px; font-size: 12px; }
 
+/* ---------- Dars vaqti ---------- */
+.startbar { background: var(--tip-soft); color: var(--tip); border-bottom: 1px solid var(--tip); padding: 8px clamp(12px, 2vw, 20px); font-size: 14px; font-weight: 600; }
+.sched { display: grid; gap: 6px; }
+.sched label, .qpanel .cap { font-size: 11.5px; letter-spacing: .06em; text-transform: uppercase; font-weight: 700; color: var(--muted); }
+.newform .field .hint { margin-top: 2px; }
+
+/* ---------- Navbat ---------- */
+.qpanel { border: 1px solid var(--line); border-radius: 10px; padding: 10px; background: var(--surface-2); display: grid; gap: 8px; }
+.slots { display: grid; grid-template-columns: repeat(auto-fill, minmax(76px, 1fr)); gap: 6px; }
+.slot { display: grid; gap: 2px; justify-items: center; min-width: 0; padding: 8px 4px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); text-align: center; }
+.slot b { font-family: var(--font-display); font-size: 18px; line-height: 1.1; }
+.slot span { max-width: 100%; font-size: 11.5px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.slot:hover:not(:disabled) { border-color: var(--accent); }
+.slot.mine { background: var(--accent-soft); border-color: var(--accent); }
+.slot.mine b, .slot.mine span { color: var(--accent); }
+.slot.taken { background: var(--surface-2); }
+.slot:disabled { cursor: default; }
+.qorder { list-style: none; padding: 0; margin: 0; display: grid; gap: 4px; }
+.qorder li { display: grid; grid-template-columns: 24px minmax(0, 1fr) auto; gap: 8px; align-items: center; padding: 6px 8px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); }
+.qorder li b { font-family: var(--font-display); }
+.qorder .nm { overflow-wrap: anywhere; font-weight: 600; font-size: 14px; }
+.qorder small { color: var(--muted); font-size: 12px; font-weight: 600; }
+.qorder li.now { border-color: var(--ok); background: var(--ok-soft); }
+.qorder li.now small { color: var(--ok); }
+.qorder li.past { opacity: .55; }
+.qorder li.me .nm { color: var(--accent); }
+
 .chat { min-height: 0; min-width: 0; display: flex; flex-direction: column; background: var(--surface); }
 .legend-panel { padding: 14px; border-bottom: 1px solid var(--line); background: var(--surface-2); max-height: 40%; overflow-y: auto; }
 .legend h3 { font-size: 15px; margin-bottom: 10px; }
