@@ -4,7 +4,7 @@ Anime ovoz berish darslari uchun sayt: **ovozli chat** (WebRTC) va **yozuv chati
 
 - Kirishda ustoz yoki o'quvchi tanlanadi. Ustoz **kod** kiritadi.
 - O'quvchilar darsga ovozi **yopiq** holda kiradi. Ustoz har birini ochadi yoki yopadi, yoki hammasini birdan.
-- Ustoz: dars yaratadi, o'quvchini darsdan chiqaradi, chatni qulflaydi, xabarlarni o'chiradi, topshiriq/maslahat/fikr yuboradi, darsni arxivga oladi.
+- Ustoz: dars yaratadi, o'quvchini darsdan chiqaradi, chatni qulflaydi, xabarlarni o'chiradi, topshiriq/maslahat/fikr yuboradi va **darsni tugatadi**. Tugatilgan dars avtomatik arxivga o'tadi: chat saqlab qo'yiladi va faqat o'qish uchun ochiq. Arxivni faqat ustozlar ko'radi («Arxiv» belgisi orqali), o'quvchilar tugagan darsdan chiqariladi.
 - Chatda ovoz belgilari: `/` `//` `↑` `↓` `~` `*urg'u*` `(izoh)`.
 - **Navbat:** ustoz navbat yaratadi, o'quvchilar o'zlariga xohlagan katakchani (tartib raqamini) tanlaydi. Katakchalar soni darsdagi o'quvchilar soniga teng. Ustoz **Tayyor** bosganda bo'sh qolgan katakchalar olib tashlanadi va navbatlar ketma-ket tartibga keladi. Keyin ustoz **Keyingi** bilan navbatni yuritadi. Yaratishda «ovozni avtomatik ochish» yoqilgan bo'lsa, navbati kelgan o'quvchining ovozi ochiladi, qolganlariniki yopiladi.
 - **Dars vaqti:** yangi dars yaratishda boshlanish vaqtini belgilash mumkin (keyinroq dars ichida ham o'zgartiriladi). O'sha vaqtgacha o'quvchilar kutish holatida bo'ladi: yozolmaydi va ovozga ulana olmaydi. Vaqt kelganda chat va ovoz o'zi ochiladi. Ustoz **Hozir boshlash** bilan darsni oldinroq ochishi mumkin. Cheklov: bu server funksiyasi emas, vaqtni brauzer va Firestore qoidalari tekshiradi. Ovozga ulanish tugmasini o'quvchi baribir o'zi bosadi (brauzer mikrofonni avtomatik yoqmaydi).
@@ -51,14 +51,13 @@ Firebase Authentication -> Settings -> **Authorized domains** ichiga saytingiz d
 ```
 teachers/{uid}                      ustoz hujjati (kod bilan yaratiladi)
 private/teacherCode                 { value }  mijozlarga yopiq
-rooms/{rid}                         dars: title, level, description, archived, chatLocked, startsAt (ms, 0 = darhol)
+rooms/{rid}                         dars: title, level, description, archived, finished, finishedAt, chatLocked, startsAt (ms, 0 = darhol)
 rooms/{rid}/members/{uid}           qatnashchi: role, muted, micOff, hand, kicked, inVoice, lastSeen
 rooms/{rid}/messages/{id}           yozuv chati
 rooms/{rid}/queues/{id}             navbat: title, status (open | running | done), order, current, autoMic
 rooms/{rid}/queues/{id}/slots/{n}   tanlangan katakcha: uid, name, n (hujjat ID si = tartib raqami)
 rooms/{rid}/signals/{id}            WebRTC signallari (qabul qilingach o'chiriladi)
 ```
-
 
 
 

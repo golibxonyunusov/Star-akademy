@@ -97,6 +97,7 @@ const S = {
   rid: null, room: null, members: new Map(), messages: [],
   kind: "msg", replyTo: null, sending: false, armed: null, armedKick: null,
   subs: [], hb: null, tick: null, forceBottom: false,
+  armedFinish: false,
   queue: null, slots: [], subSlots: null, qForm: false, qDraft: "", qAuto: true,
   clock: null, startedFlag: true, lobbyTick: null
 };
@@ -225,7 +226,7 @@ function renderRooms() {
       h("h3", { text: r.title || "Nomsiz dars" }),
       r.description ? h("p", { text: r.description }) : null,
       h("div", { class: "m" }, h("span", { class: "pill", text: r.level || "Daraja yo'q" }),
-        r.archived ? h("span", { class: "pill warn", text: "Arxiv" }) : null,
+        r.archived ? h("span", { class: "pill warn", text: r.finishedAt ? "Tugagan: " + fmtWhen(r.finishedAt) : "Arxiv" }) : null,
         r.chatLocked ? h("span", { class: "pill", text: "Chat qulflangan" }) : null,
         r.startsAt > Date.now() ? h("span", { class: "pill warn", text: "Boshlanadi: " + fmtWhen(r.startsAt) }) : null)));
   });
@@ -279,7 +280,7 @@ async function enterRoom(rid) {
   clearInterval(S.lobbyTick);
   S.room = (S.rooms.find((r) => r.id === rid)) || null;
   S.members = new Map(); S.messages = []; S.kind = "msg"; S.replyTo = null; S.armed = null; S.armedKick = null;
-  S.queue = null; S.slots = []; S.qForm = false; S.qDraft = "";
+  S.queue = null; S.slots = []; S.qForm = false; S.qDraft = ""; S.armedFinish = false;
   S.startedFlag = hasStarted();
   show("s-room");
   setTab("chat");
@@ -289,7 +290,10 @@ async function enterRoom(rid) {
   S.subs.push(onSnapshot(doc(db, "rooms", rid), (d) => {
     if (!d.exists()) { toast("Bu dars o'chirilgan."); leaveRoom(); return; }
     S.room = { id: d.id, ...d.data() };
-    renderRoomHead(); renderTeacherCtl(); renderComposer(); renderMsgs(); tickClock();
+    if (S.room.archived && !isTeacher()) { toast("Dars tugadi va arxivga o'tdi."); leaveRoom(); return; }
+    if (S.room.archived && V.on) leaveVoice(true);
+    S.armedFinish = false;
+    renderRoomHead(); renderTeacherCtl(); renderComposer(); renderMsgs(); renderVoiceCtl(); renderQueue(); tickClock();
   }));
   S.subs.push(onSnapshot(collection(db, "rooms", rid, "members"), (snap) => {
     S.members = new Map(snap.docs.map((d) => [d.id, { id: d.id, ...d.data() }]));
@@ -350,6 +354,11 @@ function renderTeacherCtl() {
   if (!isTeacher()) return;
   box.textContent = "";
   const r = S.room || {};
+  if (r.archived) {
+    box.append(h("div", { class: "cap", text: "Dars tugagan" }),
+      h("p", { class: "hint", text: "Dars arxivga o'tgan. Chat saqlab qo'yilgan va faqat o'qish uchun." }));
+    return;
+  }
   box.append(
     h("div", { class: "cap", text: "Ustoz boshqaruvi" }),
     h("div", { class: "row" },
@@ -357,7 +366,7 @@ function renderTeacherCtl() {
       h("button", { class: "btn small", type: "button", text: "Hammasini ochish", onclick: () => muteAll(false) })),
     h("div", { class: "row" },
       h("button", { class: "btn small", type: "button", text: r.chatLocked ? "Chatni ochish" : "Chatni qulflash", onclick: () => updateDoc(doc(db, "rooms", S.rid), { chatLocked: !r.chatLocked }).catch(() => toast("O'zgartirib bo'lmadi.")) }),
-      h("button", { class: "btn small", type: "button", text: r.archived ? "Arxivdan chiqarish" : "Arxivga olish", onclick: () => updateDoc(doc(db, "rooms", S.rid), { archived: !r.archived }).catch(() => toast("O'zgartirib bo'lmadi.")) })),
+      h("button", { class: "btn small danger", type: "button", text: S.armedFinish ? "Tasdiqlang" : "Darsni tugatish", onclick: finishLesson })),
     schedNode(),
     h("p", { class: "hint", text: "O'quvchilar darsga ovozi yopiq holda kiradi. Qo'l ko'targanlarni shu yerdan ochasiz." }));
 }
@@ -426,6 +435,7 @@ function renderVoiceCtl() {
   if (!box || !S.rid) return;
   box.textContent = "";
   const me = S.members.get(S.uid) || {};
+  if ((S.room && S.room.archived)) { box.append(h("p", { class: "vstate", text: "Dars tugagan. Ovozli chat yopiq." })); return; }
   const closed = !isTeacher() && me.muted;
   if (!V.on) {
     const wait = !hasStarted();
@@ -448,7 +458,7 @@ function renderVoiceCtl() {
 }
 
 async function joinVoice() {
-  if (V.on || !S.rid || !hasStarted()) return;
+  if (V.on || !S.rid || !hasStarted() || (S.room && S.room.archived)) return;
   if (!navigator.mediaDevices || !window.RTCPeerConnection) { toast("Brauzeringiz ovozli chatni qo'llamaydi."); return; }
   V.session = Date.now();
   try {
@@ -620,6 +630,7 @@ function renderStartBar() {
   const bar = $("#startBar");
   if (!bar) return;
   const t = startsAt();
+  if (S.rid && (S.room && S.room.archived)) { bar.hidden = false; bar.textContent = "Dars tugagan va arxivga o'tgan. Chat saqlab qo'yilgan, faqat o'qish mumkin."; return; }
   if (!S.rid || !t || Date.now() >= t) { bar.hidden = true; return; }
   bar.hidden = false;
   bar.textContent = "Dars " + fmtWhen(t) + " da boshlanadi · " + fmtLeft(t - Date.now()) + " qoldi" +
@@ -654,6 +665,21 @@ async function saveSched() {
   if (ts <= Date.now()) { toast("Vaqt hozirdan keyin bo'lishi kerak. Hoziroq ochish uchun «Hozir boshlash» ni bosing."); return; }
   try { await updateDoc(doc(db, "rooms", S.rid), { startsAt: ts }); toast("Dars " + fmtWhen(ts) + " da boshlanadi."); }
   catch (e) { toast("Saqlab bo'lmadi: " + (e.code || e.message)); }
+}
+async function finishLesson() {
+  if (!S.armedFinish) {
+    S.armedFinish = true; renderTeacherCtl();
+    setTimeout(() => { if (S.armedFinish) { S.armedFinish = false; renderTeacherCtl(); } }, 3500);
+    return;
+  }
+  S.armedFinish = false;
+  try {
+    const batch = writeBatch(db);
+    batch.update(doc(db, "rooms", S.rid), { archived: true, finished: true, finishedAt: Date.now(), chatLocked: true });
+    if (S.queue && S.queue.status !== "done") batch.update(qRef(), { status: "done" });
+    await batch.commit();
+    toast("Dars tugadi va arxivga o'tdi. Chat saqlab qo'yildi.");
+  } catch (e) { toast("Bajarib bo'lmadi: " + (e.code || e.message)); renderTeacherCtl(); }
 }
 async function startNow() {
   try { await updateDoc(doc(db, "rooms", S.rid), { startsAt: 0 }); toast("Dars boshlandi."); }
@@ -692,7 +718,7 @@ function renderQueue() {
   const box = $("#qpanel");
   if (!box || !S.rid) return;
   const q = S.queue, teacher = isTeacher(), active = !!q && q.status !== "done";
-  box.hidden = !active && !teacher;
+  box.hidden = !!(S.room && S.room.archived) || (!active && !teacher);
   if (box.hidden) return;
   const ae = document.activeElement;
   if (ae && box.contains(ae) && ae.tagName === "INPUT" && ae.type !== "checkbox") return;
@@ -816,7 +842,7 @@ async function nextTurn() {
 }
 
 /* ---------------- Yozuv chati ---------------- */
-function canWrite() { return isTeacher() || (hasStarted() && !(S.room && S.room.chatLocked)); }
+function canWrite() { return !(S.room && S.room.archived) && (isTeacher() || (hasStarted() && !(S.room && S.room.chatLocked))); }
 
 function renderMsgs() {
   const box = $("#msgs");
@@ -861,7 +887,7 @@ function msgEl(m, cont) {
   else col.append(body);
   const acts = h("div", { class: "acts" });
   if (canWrite()) acts.append(h("button", { class: "act", type: "button", text: "Javob", onclick: () => setReply(m) }));
-  if (mine || isTeacher()) {
+  if ((mine || isTeacher()) && !(S.room && S.room.archived)) {
     const armed = S.armed === m.id;
     acts.append(h("button", { class: "act" + (armed ? " armed" : ""), type: "button", text: armed ? "Tasdiqlang" : "O'chirish", onclick: () => delMsg(m) }));
   }
@@ -886,6 +912,7 @@ function note(text, err) {
 function renderComposer() {
   if (!S.rid) return;
   const can = canWrite();
+  $("#composer").hidden = !!(S.room && S.room.archived);
   $("#kindRow").hidden = !(isTeacher());
   if (!isTeacher()) S.kind = "msg";
   [...$("#kindRow").children].forEach((b) => b.setAttribute("aria-pressed", b.dataset.kind === S.kind ? "true" : "false"));
